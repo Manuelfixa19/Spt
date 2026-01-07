@@ -1,158 +1,202 @@
---====================================
--- ILHA BELA HUB | BASE 2026
--- Ronix / Fluxus / Luna
---====================================
+--==================================================
+-- ILHA BELA HUB | ESP + SKELETON + AIMBOT PRO
+-- Ronix / Luna / Fluxus | 2026 Stable
+--==================================================
 
+--================ SERVICES ================
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
 local LP = Players.LocalPlayer
 
---================= FLAGS =================
-getgenv().ESP_ENABLED = false
-getgenv().AIMBOT_ENABLED = false
-getgenv().TP_ENABLED = false
---========================================
+--================ CONFIG ==================
+getgenv().ESP = true
+getgenv().SKELETON = true
+getgenv().AIMBOT = false
 
--- Limpar hub duplicado
-pcall(function()
-    if LP.PlayerGui:FindFirstChild("IlhaBelaHub") then
-        LP.PlayerGui.IlhaBelaHub:Destroy()
+local MAX_DIST = 250
+local AIM_FOV = 120
+local AIM_SMOOTH = 0.18
+
+--================ STORAGE =================
+local Boxes, Names, Dists, Bones = {}, {}, {}, {}
+
+--================ DRAW UTILS ==============
+local function Box()
+    local b = Drawing.new("Square")
+    b.Thickness = 1
+    b.Filled = false
+    return b
+end
+
+local function Txt()
+    local t = Drawing.new("Text")
+    t.Size = 13
+    t.Center = true
+    t.Outline = true
+    t.Color = Color3.new(1,1,1)
+    return t
+end
+
+local function Line()
+    local l = Drawing.new("Line")
+    l.Thickness = 1
+    l.Color = Color3.new(1,1,1)
+    return l
+end
+
+--================ SKELETON MAP ============
+local BoneMap = {
+    {"Head","UpperTorso"},{"UpperTorso","LowerTorso"},
+    {"UpperTorso","LeftUpperArm"},{"LeftUpperArm","LeftLowerArm"},{"LeftLowerArm","LeftHand"},
+    {"UpperTorso","RightUpperArm"},{"RightUpperArm","RightLowerArm"},{"RightLowerArm","RightHand"},
+    {"LowerTorso","LeftUpperLeg"},{"LeftUpperLeg","LeftLowerLeg"},{"LeftLowerLeg","LeftFoot"},
+    {"LowerTorso","RightUpperLeg"},{"RightUpperLeg","RightLowerLeg"},{"RightLowerLeg","RightFoot"},
+}
+
+--================ COLOR BY DIST ===========
+local function distColor(d)
+    if d < 70 then return Color3.fromRGB(0,255,0)
+    elseif d < 150 then return Color3.fromRGB(255,255,0)
+    else return Color3.fromRGB(255,0,0) end
+end
+
+--================ CLEAR ===================
+local function clear(plr)
+    if Boxes[plr] then Boxes[plr]:Remove() Boxes[plr]=nil end
+    if Names[plr] then Names[plr]:Remove() Names[plr]=nil end
+    if Dists[plr] then Dists[plr]:Remove() Dists[plr]=nil end
+    if Bones[plr] then
+        for _,l in pairs(Bones[plr]) do l:Remove() end
+        Bones[plr]=nil
+    end
+end
+
+--================ ESP LOOP ================
+RunService.RenderStepped:Connect(function()
+    for _,plr in pairs(Players:GetPlayers()) do
+        if plr ~= LP and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local char = plr.Character
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 then
+                local hrp = char.HumanoidRootPart
+                local dist = (Camera.CFrame.Position - hrp.Position).Magnitude
+
+                if getgenv().ESP and dist <= MAX_DIST then
+                    local pos, vis = Camera:WorldToViewportPoint(hrp.Position)
+                    if vis then
+                        local color = distColor(dist)
+
+                        Boxes[plr] = Boxes[plr] or Box()
+                        Names[plr] = Names[plr] or Txt()
+                        Dists[plr] = Dists[plr] or Txt()
+
+                        Boxes[plr].Color = color
+                        local scale = math.clamp(1/(pos.Z/90),0.6,1.4)
+                        local w,h = 26*scale,46*scale
+                        Boxes[plr].Size = Vector2.new(w,h)
+                        Boxes[plr].Position = Vector2.new(pos.X-w/2,pos.Y-h/2)
+                        Boxes[plr].Visible = true
+
+                        Names[plr].Text = plr.Name
+                        Names[plr].Position = Vector2.new(pos.X,pos.Y-h/2-14)
+                        Names[plr].Visible = true
+
+                        Dists[plr].Text = math.floor(dist).."m"
+                        Dists[plr].Position = Vector2.new(pos.X,pos.Y-h/2-2)
+                        Dists[plr].Visible = true
+
+                        if getgenv().SKELETON then
+                            Bones[plr] = Bones[plr] or {}
+                            for i,p in ipairs(BoneMap) do
+                                local a,b = char:FindFirstChild(p[1]),char:FindFirstChild(p[2])
+                                if a and b then
+                                    Bones[plr][i] = Bones[plr][i] or Line()
+                                    Bones[plr][i].Color = color
+                                    local ap,av = Camera:WorldToViewportPoint(a.Position)
+                                    local bp,bv = Camera:WorldToViewportPoint(b.Position)
+                                    Bones[plr][i].Visible = av and bv
+                                    if av and bv then
+                                        Bones[plr][i].From = Vector2.new(ap.X,ap.Y)
+                                        Bones[plr][i].To = Vector2.new(bp.X,bp.Y)
+                                    end
+                                end
+                            end
+                        end
+                    else clear(plr) end
+                else clear(plr) end
+            else clear(plr) end
+        else clear(plr) end
     end
 end)
 
--- GUI
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "IlhaBelaHub"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = LP.PlayerGui
+--================ AIMBOT ==================
+local FOV = Drawing.new("Circle")
+FOV.Thickness = 1
+FOV.Filled = false
+FOV.Color = Color3.fromRGB(255,255,255)
 
---================= MAIN FRAME =================
-local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 420, 0, 300)
-Main.Position = UDim2.fromScale(0.5, 0.5)
-Main.AnchorPoint = Vector2.new(0.5, 0.5)
-Main.BackgroundColor3 = Color3.fromRGB(20,20,20)
-Main.Active = true
-Main.Draggable = true
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0,16)
+local shooting = false
+local lastCam = Camera.CFrame
 
---================= TITLE =================
-local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1,0,0,40)
-Title.BackgroundTransparency = 1
-Title.Text = "🏝️ ILHA BELA HUB"
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 20
-Title.TextColor3 = Color3.new(1,1,1)
+UIS.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then shooting = true end
+    if i.KeyCode == Enum.KeyCode.Up then AIM_FOV += 10 end
+    if i.KeyCode == Enum.KeyCode.Down then AIM_FOV = math.max(40,AIM_FOV-10) end
+end)
 
---================= TABS =================
-local Tabs = Instance.new("Frame", Main)
-Tabs.Size = UDim2.new(0,120,1,-40)
-Tabs.Position = UDim2.new(0,0,0,40)
-Tabs.BackgroundColor3 = Color3.fromRGB(30,30,30)
+UIS.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then shooting = false end
+end)
 
-local Pages = Instance.new("Frame", Main)
-Pages.Size = UDim2.new(1,-120,1,-40)
-Pages.Position = UDim2.new(0,120,0,40)
-Pages.BackgroundTransparency = 1
-
---================= TAB SYSTEM =================
-local pages = {}
-
-local function createPage(name)
-    local f = Instance.new("Frame", Pages)
-    f.Size = UDim2.new(1,0,1,0)
-    f.Visible = false
-    f.BackgroundTransparency = 1
-    pages[name] = f
-    return f
-end
-
-local function showPage(name)
-    for _,v in pairs(pages) do v.Visible = false end
-    pages[name].Visible = true
-end
-
-local function createTab(name, order)
-    local b = Instance.new("TextButton", Tabs)
-    b.Size = UDim2.new(1,0,0,45)
-    b.Position = UDim2.new(0,0,0,(order-1)*45)
-    b.Text = name
-    b.Font = Enum.Font.GothamBold
-    b.TextSize = 14
-    b.TextColor3 = Color3.new(1,1,1)
-    b.BackgroundColor3 = Color3.fromRGB(40,40,40)
-
-    b.MouseButton1Click:Connect(function()
-        showPage(name)
-    end)
-end
-
---================= PAGES =================
-local ESP_PAGE = createPage("ESP")
-local AIM_PAGE = createPage("AIMBOT")
-local TP_PAGE  = createPage("TELEPORT")
-local INFO_PAGE = createPage("INFO")
-
-createTab("ESP",1)
-createTab("AIMBOT",2)
-createTab("TELEPORT",3)
-createTab("INFO",4)
-
-showPage("ESP")
-
---================= TOGGLE BUTTON =================
-local function toggleButton(parent, text, y, flagName)
-    local btn = Instance.new("TextButton", parent)
-    btn.Size = UDim2.new(0.8,0,0,40)
-    btn.Position = UDim2.new(0.1,0,0,y)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 14
-    btn.TextColor3 = Color3.new(1,1,1)
-    btn.BackgroundColor3 = Color3.fromRGB(50,50,50)
-    Instance.new("UICorner", btn)
-
-    local function refresh()
-        local state = getgenv()[flagName]
-        btn.Text = text .. (state and " : ON" or " : OFF")
-        btn.BackgroundColor3 = state and Color3.fromRGB(0,140,255) or Color3.fromRGB(50,50,50)
+local function getTarget()
+    local best,dist = nil,AIM_FOV
+    for _,plr in pairs(Players:GetPlayers()) do
+        if plr~=LP and plr.Team~=LP.Team and plr.Character and plr.Character:FindFirstChild("Head") then
+            local head = plr.Character.Head
+            local pos,vis = Camera:WorldToViewportPoint(head.Position)
+            if vis then
+                local m = (Vector2.new(pos.X,pos.Y)-UIS:GetMouseLocation()).Magnitude
+                if m < dist then
+                    dist = m
+                    best = head
+                end
+            end
+        end
     end
-
-    btn.MouseButton1Click:Connect(function()
-        getgenv()[flagName] = not getgenv()[flagName]
-        refresh()
-        warn(flagName, getgenv()[flagName])
-    end)
-
-    refresh()
+    return best
 end
 
---================= ESP PAGE =================
-toggleButton(ESP_PAGE,"ESP",40,"ESP_ENABLED")
+RunService.RenderStepped:Connect(function()
+    FOV.Position = UIS:GetMouseLocation()
+    FOV.Radius = AIM_FOV
+    FOV.Visible = getgenv().AIMBOT
 
---================= AIMBOT PAGE =================
-toggleButton(AIM_PAGE,"AIMBOT",40,"AIMBOT_ENABLED")
+    -- Anti-Aimbot Detect
+    if (Camera.CFrame.Position - lastCam.Position).Magnitude > 5 then
+        getgenv().AIMBOT = false
+        warn("⚠️ Movimento anormal detectado - Aimbot desligado")
+    end
+    lastCam = Camera.CFrame
 
---================= TP PAGE =================
-toggleButton(TP_PAGE,"TELEPORT",40,"TP_ENABLED")
+    if getgenv().AIMBOT and shooting then
+        local t = getTarget()
+        if t then
+            Camera.CFrame = Camera.CFrame:Lerp(
+                CFrame.new(Camera.CFrame.Position,t.Position),
+                AIM_SMOOTH
+            )
+        end
+    end
+end)
 
---================= INFO PAGE =================
-local Info = Instance.new("TextLabel", INFO_PAGE)
-Info.Size = UDim2.new(0.9,0,0.8,0)
-Info.Position = UDim2.new(0.05,0,0.1,0)
-Info.BackgroundTransparency = 1
-Info.TextWrapped = true
-Info.TextYAlignment = Top
-Info.Font = Enum.Font.Gotham
-Info.TextSize = 14
-Info.TextColor3 = Color3.new(1,1,1)
-Info.Text =
-[[ILHA BELA HUB
+--================ HOTKEYS ================
+UIS.InputBegan:Connect(function(i,g)
+    if g then return end
+    if i.KeyCode == Enum.KeyCode.F1 then getgenv().ESP = not getgenv().ESP end
+    if i.KeyCode == Enum.KeyCode.F2 then getgenv().SKELETON = not getgenv().SKELETON end
+    if i.KeyCode == Enum.KeyCode.F3 then getgenv().AIMBOT = not getgenv().AIMBOT end
+end)
 
-ESP / AIMBOT / TELEPORT
-Ative apenas o que precisar.
-
-Base limpa 2026
-Compatível com Ronix / Fluxus / Luna
-]]
-
-warn("🏝️ Ilha Bela Hub carregado")
+warn("✅ Ilha Bela HUB PRO carregado")
