@@ -1,0 +1,193 @@
+--==================================================
+-- ILHA BELA RP | ESP + SKELETON + AIMBOT (SHOT ONLY)
+-- RONIX SAFE | SEM GUI | 2026
+--==================================================
+
+--================= CONFIG =================
+local ESP_ON = true
+local BOX_ON = true
+local SKELETON_ON = true
+
+local AIM_SYSTEM_ON = true
+local AIMBOT_ON = true
+local FOV_VISIBLE = true
+
+local MAX_DISTANCE = 150
+local AIM_FOV = 120
+local AIM_PART = "Head" -- "Head" ou "UpperTorso"
+--==========================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+local LP = Players.LocalPlayer
+
+warn("✅ Ilha Bela RP Script carregado")
+warn("[F1] ESP | [F2] BOX | [F3] SKELETON | [F4] AIMBOT")
+
+--================= TECLAS =================
+UIS.InputBegan:Connect(function(input,gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.F1 then ESP_ON = not ESP_ON warn("ESP:",ESP_ON) end
+    if input.KeyCode == Enum.KeyCode.F2 then BOX_ON = not BOX_ON warn("BOX:",BOX_ON) end
+    if input.KeyCode == Enum.KeyCode.F3 then SKELETON_ON = not SKELETON_ON warn("SKELETON:",SKELETON_ON) end
+    if input.KeyCode == Enum.KeyCode.F4 then AIM_SYSTEM_ON = not AIM_SYSTEM_ON warn("AIMBOT:",AIM_SYSTEM_ON) end
+end)
+
+--================= DRAWING =================
+local Boxes,Texts,Bones = {},{},{}
+
+local function newBox()
+    local b = Drawing.new("Square")
+    b.Thickness = 1.2
+    b.Filled = false
+    b.Color = Color3.fromRGB(0,255,0)
+    return b
+end
+
+local function newText()
+    local t = Drawing.new("Text")
+    t.Size = 12
+    t.Center = true
+    t.Outline = true
+    t.Font = 2
+    return t
+end
+
+local function newLine()
+    local l = Drawing.new("Line")
+    l.Thickness = 1
+    return l
+end
+
+local function clear(plr)
+    if Boxes[plr] then Boxes[plr]:Remove() Boxes[plr]=nil end
+    if Texts[plr] then for _,v in pairs(Texts[plr]) do v:Remove() end Texts[plr]=nil end
+    if Bones[plr] then for _,v in pairs(Bones[plr]) do v:Remove() end Bones[plr]=nil end
+end
+
+--================= SKELETON MAP =================
+local BonePairs = {
+    {"Head","UpperTorso"},{"UpperTorso","LowerTorso"},
+    {"UpperTorso","LeftUpperArm"},{"LeftUpperArm","LeftLowerArm"},{"LeftLowerArm","LeftHand"},
+    {"UpperTorso","RightUpperArm"},{"RightUpperArm","RightLowerArm"},{"RightLowerArm","RightHand"},
+    {"LowerTorso","LeftUpperLeg"},{"LeftUpperLeg","LeftLowerLeg"},{"LeftLowerLeg","LeftFoot"},
+    {"LowerTorso","RightUpperLeg"},{"RightUpperLeg","RightLowerLeg"},{"RightLowerLeg","RightFoot"},
+}
+
+--================= ESP LOOP =================
+RunService.RenderStepped:Connect(function()
+    for _,plr in pairs(Players:GetPlayers()) do
+        if plr ~= LP and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local char = plr.Character
+            local hrp = char.HumanoidRootPart
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 then
+                local dist = (Camera.CFrame.Position - hrp.Position).Magnitude
+                if ESP_ON and dist <= MAX_DISTANCE then
+                    local pos,onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                    if onScreen then
+                        if BOX_ON then
+                            Boxes[plr] = Boxes[plr] or newBox()
+                            Texts[plr] = Texts[plr] or {name=newText(),dist=newText()}
+                            local scale = math.clamp(1/(pos.Z/90),0.7,1.6)
+                            local w,h = 20*scale,38*scale
+                            Boxes[plr].Size = Vector2.new(w,h)
+                            Boxes[plr].Position = Vector2.new(pos.X-w/2,pos.Y-h/2)
+                            Boxes[plr].Visible = true
+                            Texts[plr].name.Text = plr.Name
+                            Texts[plr].name.Position = Vector2.new(pos.X,pos.Y-h/2-14)
+                            Texts[plr].name.Visible = true
+                            Texts[plr].dist.Text = math.floor(dist).."m"
+                            Texts[plr].dist.Position = Vector2.new(pos.X,pos.Y-h/2-2)
+                            Texts[plr].dist.Visible = true
+                        end
+                        if SKELETON_ON then
+                            Bones[plr] = Bones[plr] or {}
+                            for i,p in ipairs(BonePairs) do
+                                local a,b = char:FindFirstChild(p[1]),char:FindFirstChild(p[2])
+                                if a and b then
+                                    Bones[plr][i] = Bones[plr][i] or newLine()
+                                    local ap,av = Camera:WorldToViewportPoint(a.Position)
+                                    local bp,bv = Camera:WorldToViewportPoint(b.Position)
+                                    if av and bv then
+                                        Bones[plr][i].From = Vector2.new(ap.X,ap.Y)
+                                        Bones[plr][i].To = Vector2.new(bp.X,bp.Y)
+                                        Bones[plr][i].Visible = true
+                                    else Bones[plr][i].Visible=false end
+                                end
+                            end
+                        end
+                    else clear(plr) end
+                else clear(plr) end
+            else clear(plr) end
+        else clear(plr) end
+    end
+end)
+
+Players.PlayerRemoving:Connect(clear)
+
+--================= AIMBOT =================
+local IS_SHOOTING = false
+
+-- PC
+UIS.InputBegan:Connect(function(i,gp)
+    if gp then return end
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then IS_SHOOTING=true end
+end)
+UIS.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then IS_SHOOTING=false end
+end)
+
+-- Mobile / Tool
+local function hookTool(t)
+    if not t:IsA("Tool") then return end
+    t.Activated:Connect(function() IS_SHOOTING=true end)
+    t.Deactivated:Connect(function() IS_SHOOTING=false end)
+end
+LP.CharacterAdded:Connect(function(c) c.ChildAdded:Connect(hookTool) end)
+if LP.Character then for _,v in pairs(LP.Character:GetChildren()) do hookTool(v) end end
+
+-- FOV
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.NumSides = 64
+FOVCircle.Thickness = 1.5
+FOVCircle.Radius = AIM_FOV
+FOVCircle.Color = Color3.fromRGB(255,255,255)
+FOVCircle.Filled = false
+
+local function getClosest()
+    local closest,dist = nil,AIM_FOV
+    for _,plr in pairs(Players:GetPlayers()) do
+        if plr~=LP and plr.Character and plr.Character:FindFirstChild(AIM_PART) then
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health>0 then
+                local pos,vis = Camera:WorldToViewportPoint(plr.Character[AIM_PART].Position)
+                if vis then
+                    local m = UIS:GetMouseLocation()
+                    local d = (Vector2.new(pos.X,pos.Y)-Vector2.new(m.X,m.Y)).Magnitude
+                    if d < dist then dist=d closest=plr end
+                end
+            end
+        end
+    end
+    return closest
+end
+
+RunService.RenderStepped:Connect(function()
+    local mouse = UIS:GetMouseLocation()
+    if AIM_SYSTEM_ON and FOV_VISIBLE then
+        FOVCircle.Position = Vector2.new(mouse.X,mouse.Y)
+        FOVCircle.Visible = true
+    else
+        FOVCircle.Visible = false
+    end
+
+    if not AIM_SYSTEM_ON or not AIMBOT_ON or not IS_SHOOTING then return end
+    local target = getClosest()
+    if target and target.Character then
+        local part = target.Character[AIM_PART]
+        Camera.CFrame = CFrame.new(Camera.CFrame.Position, part.Position)
+    end
+end)
