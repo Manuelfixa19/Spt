@@ -1,193 +1,158 @@
---==================================================
--- ILHA BELA RP | ESP + SKELETON + AIMBOT (SHOT ONLY)
--- RONIX SAFE | SEM GUI | 2026
---==================================================
-
---================= CONFIG =================
-local ESP_ON = true
-local BOX_ON = true
-local SKELETON_ON = true
-
-local AIM_SYSTEM_ON = true
-local AIMBOT_ON = true
-local FOV_VISIBLE = true
-
-local MAX_DISTANCE = 150
-local AIM_FOV = 120
-local AIM_PART = "Head" -- "Head" ou "UpperTorso"
---==========================================
+--====================================
+-- ILHA BELA HUB | BASE 2026
+-- Ronix / Fluxus / Luna
+--====================================
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UIS = game:GetService("UserInputService")
-local Camera = workspace.CurrentCamera
 local LP = Players.LocalPlayer
 
-warn("✅ Ilha Bela RP Script carregado")
-warn("[F1] ESP | [F2] BOX | [F3] SKELETON | [F4] AIMBOT")
+--================= FLAGS =================
+getgenv().ESP_ENABLED = false
+getgenv().AIMBOT_ENABLED = false
+getgenv().TP_ENABLED = false
+--========================================
 
---================= TECLAS =================
-UIS.InputBegan:Connect(function(input,gp)
-    if gp then return end
-    if input.KeyCode == Enum.KeyCode.F1 then ESP_ON = not ESP_ON warn("ESP:",ESP_ON) end
-    if input.KeyCode == Enum.KeyCode.F2 then BOX_ON = not BOX_ON warn("BOX:",BOX_ON) end
-    if input.KeyCode == Enum.KeyCode.F3 then SKELETON_ON = not SKELETON_ON warn("SKELETON:",SKELETON_ON) end
-    if input.KeyCode == Enum.KeyCode.F4 then AIM_SYSTEM_ON = not AIM_SYSTEM_ON warn("AIMBOT:",AIM_SYSTEM_ON) end
-end)
-
---================= DRAWING =================
-local Boxes,Texts,Bones = {},{},{}
-
-local function newBox()
-    local b = Drawing.new("Square")
-    b.Thickness = 1.2
-    b.Filled = false
-    b.Color = Color3.fromRGB(0,255,0)
-    return b
-end
-
-local function newText()
-    local t = Drawing.new("Text")
-    t.Size = 12
-    t.Center = true
-    t.Outline = true
-    t.Font = 2
-    return t
-end
-
-local function newLine()
-    local l = Drawing.new("Line")
-    l.Thickness = 1
-    return l
-end
-
-local function clear(plr)
-    if Boxes[plr] then Boxes[plr]:Remove() Boxes[plr]=nil end
-    if Texts[plr] then for _,v in pairs(Texts[plr]) do v:Remove() end Texts[plr]=nil end
-    if Bones[plr] then for _,v in pairs(Bones[plr]) do v:Remove() end Bones[plr]=nil end
-end
-
---================= SKELETON MAP =================
-local BonePairs = {
-    {"Head","UpperTorso"},{"UpperTorso","LowerTorso"},
-    {"UpperTorso","LeftUpperArm"},{"LeftUpperArm","LeftLowerArm"},{"LeftLowerArm","LeftHand"},
-    {"UpperTorso","RightUpperArm"},{"RightUpperArm","RightLowerArm"},{"RightLowerArm","RightHand"},
-    {"LowerTorso","LeftUpperLeg"},{"LeftUpperLeg","LeftLowerLeg"},{"LeftLowerLeg","LeftFoot"},
-    {"LowerTorso","RightUpperLeg"},{"RightUpperLeg","RightLowerLeg"},{"RightLowerLeg","RightFoot"},
-}
-
---================= ESP LOOP =================
-RunService.RenderStepped:Connect(function()
-    for _,plr in pairs(Players:GetPlayers()) do
-        if plr ~= LP and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            local char = plr.Character
-            local hrp = char.HumanoidRootPart
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            if hum and hum.Health > 0 then
-                local dist = (Camera.CFrame.Position - hrp.Position).Magnitude
-                if ESP_ON and dist <= MAX_DISTANCE then
-                    local pos,onScreen = Camera:WorldToViewportPoint(hrp.Position)
-                    if onScreen then
-                        if BOX_ON then
-                            Boxes[plr] = Boxes[plr] or newBox()
-                            Texts[plr] = Texts[plr] or {name=newText(),dist=newText()}
-                            local scale = math.clamp(1/(pos.Z/90),0.7,1.6)
-                            local w,h = 20*scale,38*scale
-                            Boxes[plr].Size = Vector2.new(w,h)
-                            Boxes[plr].Position = Vector2.new(pos.X-w/2,pos.Y-h/2)
-                            Boxes[plr].Visible = true
-                            Texts[plr].name.Text = plr.Name
-                            Texts[plr].name.Position = Vector2.new(pos.X,pos.Y-h/2-14)
-                            Texts[plr].name.Visible = true
-                            Texts[plr].dist.Text = math.floor(dist).."m"
-                            Texts[plr].dist.Position = Vector2.new(pos.X,pos.Y-h/2-2)
-                            Texts[plr].dist.Visible = true
-                        end
-                        if SKELETON_ON then
-                            Bones[plr] = Bones[plr] or {}
-                            for i,p in ipairs(BonePairs) do
-                                local a,b = char:FindFirstChild(p[1]),char:FindFirstChild(p[2])
-                                if a and b then
-                                    Bones[plr][i] = Bones[plr][i] or newLine()
-                                    local ap,av = Camera:WorldToViewportPoint(a.Position)
-                                    local bp,bv = Camera:WorldToViewportPoint(b.Position)
-                                    if av and bv then
-                                        Bones[plr][i].From = Vector2.new(ap.X,ap.Y)
-                                        Bones[plr][i].To = Vector2.new(bp.X,bp.Y)
-                                        Bones[plr][i].Visible = true
-                                    else Bones[plr][i].Visible=false end
-                                end
-                            end
-                        end
-                    else clear(plr) end
-                else clear(plr) end
-            else clear(plr) end
-        else clear(plr) end
+-- Limpar hub duplicado
+pcall(function()
+    if LP.PlayerGui:FindFirstChild("IlhaBelaHub") then
+        LP.PlayerGui.IlhaBelaHub:Destroy()
     end
 end)
 
-Players.PlayerRemoving:Connect(clear)
+-- GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "IlhaBelaHub"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LP.PlayerGui
 
---================= AIMBOT =================
-local IS_SHOOTING = false
+--================= MAIN FRAME =================
+local Main = Instance.new("Frame", ScreenGui)
+Main.Size = UDim2.new(0, 420, 0, 300)
+Main.Position = UDim2.fromScale(0.5, 0.5)
+Main.AnchorPoint = Vector2.new(0.5, 0.5)
+Main.BackgroundColor3 = Color3.fromRGB(20,20,20)
+Main.Active = true
+Main.Draggable = true
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0,16)
 
--- PC
-UIS.InputBegan:Connect(function(i,gp)
-    if gp then return end
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then IS_SHOOTING=true end
-end)
-UIS.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then IS_SHOOTING=false end
-end)
+--================= TITLE =================
+local Title = Instance.new("TextLabel", Main)
+Title.Size = UDim2.new(1,0,0,40)
+Title.BackgroundTransparency = 1
+Title.Text = "🏝️ ILHA BELA HUB"
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 20
+Title.TextColor3 = Color3.new(1,1,1)
 
--- Mobile / Tool
-local function hookTool(t)
-    if not t:IsA("Tool") then return end
-    t.Activated:Connect(function() IS_SHOOTING=true end)
-    t.Deactivated:Connect(function() IS_SHOOTING=false end)
+--================= TABS =================
+local Tabs = Instance.new("Frame", Main)
+Tabs.Size = UDim2.new(0,120,1,-40)
+Tabs.Position = UDim2.new(0,0,0,40)
+Tabs.BackgroundColor3 = Color3.fromRGB(30,30,30)
+
+local Pages = Instance.new("Frame", Main)
+Pages.Size = UDim2.new(1,-120,1,-40)
+Pages.Position = UDim2.new(0,120,0,40)
+Pages.BackgroundTransparency = 1
+
+--================= TAB SYSTEM =================
+local pages = {}
+
+local function createPage(name)
+    local f = Instance.new("Frame", Pages)
+    f.Size = UDim2.new(1,0,1,0)
+    f.Visible = false
+    f.BackgroundTransparency = 1
+    pages[name] = f
+    return f
 end
-LP.CharacterAdded:Connect(function(c) c.ChildAdded:Connect(hookTool) end)
-if LP.Character then for _,v in pairs(LP.Character:GetChildren()) do hookTool(v) end end
 
--- FOV
-local FOVCircle = Drawing.new("Circle")
-FOVCircle.NumSides = 64
-FOVCircle.Thickness = 1.5
-FOVCircle.Radius = AIM_FOV
-FOVCircle.Color = Color3.fromRGB(255,255,255)
-FOVCircle.Filled = false
-
-local function getClosest()
-    local closest,dist = nil,AIM_FOV
-    for _,plr in pairs(Players:GetPlayers()) do
-        if plr~=LP and plr.Character and plr.Character:FindFirstChild(AIM_PART) then
-            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-            if hum and hum.Health>0 then
-                local pos,vis = Camera:WorldToViewportPoint(plr.Character[AIM_PART].Position)
-                if vis then
-                    local m = UIS:GetMouseLocation()
-                    local d = (Vector2.new(pos.X,pos.Y)-Vector2.new(m.X,m.Y)).Magnitude
-                    if d < dist then dist=d closest=plr end
-                end
-            end
-        end
-    end
-    return closest
+local function showPage(name)
+    for _,v in pairs(pages) do v.Visible = false end
+    pages[name].Visible = true
 end
 
-RunService.RenderStepped:Connect(function()
-    local mouse = UIS:GetMouseLocation()
-    if AIM_SYSTEM_ON and FOV_VISIBLE then
-        FOVCircle.Position = Vector2.new(mouse.X,mouse.Y)
-        FOVCircle.Visible = true
-    else
-        FOVCircle.Visible = false
+local function createTab(name, order)
+    local b = Instance.new("TextButton", Tabs)
+    b.Size = UDim2.new(1,0,0,45)
+    b.Position = UDim2.new(0,0,0,(order-1)*45)
+    b.Text = name
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 14
+    b.TextColor3 = Color3.new(1,1,1)
+    b.BackgroundColor3 = Color3.fromRGB(40,40,40)
+
+    b.MouseButton1Click:Connect(function()
+        showPage(name)
+    end)
+end
+
+--================= PAGES =================
+local ESP_PAGE = createPage("ESP")
+local AIM_PAGE = createPage("AIMBOT")
+local TP_PAGE  = createPage("TELEPORT")
+local INFO_PAGE = createPage("INFO")
+
+createTab("ESP",1)
+createTab("AIMBOT",2)
+createTab("TELEPORT",3)
+createTab("INFO",4)
+
+showPage("ESP")
+
+--================= TOGGLE BUTTON =================
+local function toggleButton(parent, text, y, flagName)
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = UDim2.new(0.8,0,0,40)
+    btn.Position = UDim2.new(0.1,0,0,y)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 14
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+    Instance.new("UICorner", btn)
+
+    local function refresh()
+        local state = getgenv()[flagName]
+        btn.Text = text .. (state and " : ON" or " : OFF")
+        btn.BackgroundColor3 = state and Color3.fromRGB(0,140,255) or Color3.fromRGB(50,50,50)
     end
 
-    if not AIM_SYSTEM_ON or not AIMBOT_ON or not IS_SHOOTING then return end
-    local target = getClosest()
-    if target and target.Character then
-        local part = target.Character[AIM_PART]
-        Camera.CFrame = CFrame.new(Camera.CFrame.Position, part.Position)
-    end
-end)
+    btn.MouseButton1Click:Connect(function()
+        getgenv()[flagName] = not getgenv()[flagName]
+        refresh()
+        warn(flagName, getgenv()[flagName])
+    end)
+
+    refresh()
+end
+
+--================= ESP PAGE =================
+toggleButton(ESP_PAGE,"ESP",40,"ESP_ENABLED")
+
+--================= AIMBOT PAGE =================
+toggleButton(AIM_PAGE,"AIMBOT",40,"AIMBOT_ENABLED")
+
+--================= TP PAGE =================
+toggleButton(TP_PAGE,"TELEPORT",40,"TP_ENABLED")
+
+--================= INFO PAGE =================
+local Info = Instance.new("TextLabel", INFO_PAGE)
+Info.Size = UDim2.new(0.9,0,0.8,0)
+Info.Position = UDim2.new(0.05,0,0.1,0)
+Info.BackgroundTransparency = 1
+Info.TextWrapped = true
+Info.TextYAlignment = Top
+Info.Font = Enum.Font.Gotham
+Info.TextSize = 14
+Info.TextColor3 = Color3.new(1,1,1)
+Info.Text =
+[[ILHA BELA HUB
+
+ESP / AIMBOT / TELEPORT
+Ative apenas o que precisar.
+
+Base limpa 2026
+Compatível com Ronix / Fluxus / Luna
+]]
+
+warn("🏝️ Ilha Bela Hub carregado")
