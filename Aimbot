@@ -1,0 +1,165 @@
+--========================================
+-- AIMBOT PRO | UI PROFISSIONAL | FIXED
+--========================================
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local GuiService = game:GetService("GuiService")
+local Camera = workspace.CurrentCamera
+local LP = Players.LocalPlayer
+
+--================ FLAGS =================
+getgenv().AIMBOT_ENABLED = false
+getgenv().AIMBOT_TEAMCHECK = true
+getgenv().AIMBOT_SHOOTONLY = true
+getgenv().AIMBOT_TARGET = "Head"
+getgenv().AIMBOT_FOV = 120
+
+--================ GUI =================
+local gui = Instance.new("ScreenGui", LP.PlayerGui)
+gui.Name = "AimbotHub"
+gui.ResetOnSpawn = false
+
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0,280,0,300)
+frame.Position = UDim2.new(0.5,-140,0.5,-150)
+frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
+frame.Active = true
+frame.Draggable = true
+Instance.new("UICorner", frame)
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1,0,0,40)
+title.Text = "ILHA BELA • AIMBOT"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 16
+title.TextColor3 = Color3.new(1,1,1)
+title.BackgroundTransparency = 1
+
+--================ BUTTON MAKER =================
+local function toggleButton(text,y,flagName)
+    local b = Instance.new("TextButton", frame)
+    b.Size = UDim2.new(0.9,0,0,36)
+    b.Position = UDim2.new(0.05,0,0,y)
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 13
+    b.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", b)
+
+    local function refresh()
+        if getgenv()[flagName] then
+            b.BackgroundColor3 = Color3.fromRGB(0,160,0) -- verde
+            b.Text = text.." : ON"
+        else
+            b.BackgroundColor3 = Color3.fromRGB(160,0,0) -- vermelho
+            b.Text = text.." : OFF"
+        end
+    end
+
+    b.MouseButton1Click:Connect(function()
+        getgenv()[flagName] = not getgenv()[flagName]
+        refresh()
+    end)
+
+    refresh()
+end
+
+--================ BUTTONS =================
+toggleButton("AIMBOT", 50, "AIMBOT_ENABLED")
+toggleButton("TEAM CHECK", 95, "AIMBOT_TEAMCHECK")
+toggleButton("SÓ AO ATIRAR", 140, "AIMBOT_SHOOTONLY")
+
+-- TARGET BUTTON
+local targetBtn = Instance.new("TextButton", frame)
+targetBtn.Size = UDim2.new(0.9,0,0,36)
+targetBtn.Position = UDim2.new(0.05,0,0,185)
+targetBtn.Font = Enum.Font.GothamBold
+targetBtn.TextSize = 13
+targetBtn.TextColor3 = Color3.new(1,1,1)
+targetBtn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+Instance.new("UICorner", targetBtn)
+
+local function refreshTarget()
+    targetBtn.Text = "TARGET : "..string.upper(getgenv().AIMBOT_TARGET)
+end
+
+targetBtn.MouseButton1Click:Connect(function()
+    getgenv().AIMBOT_TARGET = (getgenv().AIMBOT_TARGET=="Head" and "UpperTorso" or "Head")
+    refreshTarget()
+end)
+
+refreshTarget()
+
+--================ FOV =================
+local FOV = Drawing.new("Circle")
+FOV.Filled = false
+FOV.Thickness = 1
+FOV.Color = Color3.fromRGB(255,255,255)
+
+--================ AIMBOT CORE =================
+local shooting = false
+
+UIS.InputBegan:Connect(function(i,gp)
+    if gp then return end
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        shooting = true
+    end
+end)
+
+UIS.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        shooting = false
+    end
+end)
+
+local function mouseOverUI()
+    local pos = UIS:GetMouseLocation()
+    return #GuiService:GetGuiObjectsAtPosition(pos.X,pos.Y) > 0
+end
+
+local function getTarget()
+    local best,dist = nil,getgenv().AIMBOT_FOV
+    for _,plr in pairs(Players:GetPlayers()) do
+        if plr~=LP and plr.Character then
+            if getgenv().AIMBOT_TEAMCHECK and plr.Team == LP.Team then continue end
+            local part = plr.Character:FindFirstChild(getgenv().AIMBOT_TARGET)
+            if part then
+                local p,vis = Camera:WorldToViewportPoint(part.Position)
+                if vis then
+                    local m = (Vector2.new(p.X,p.Y)-UIS:GetMouseLocation()).Magnitude
+                    if m < dist then
+                        dist = m
+                        best = part
+                    end
+                end
+            end
+        end
+    end
+    return best
+end
+
+RunService.RenderStepped:Connect(function()
+    -- NÃO atualiza FOV se estiver mexendo no UI
+    if mouseOverUI() then
+        FOV.Visible = false
+        return
+    end
+
+    FOV.Position = UIS:GetMouseLocation()
+    FOV.Radius = getgenv().AIMBOT_FOV
+    FOV.Visible = getgenv().AIMBOT_ENABLED
+
+    if not getgenv().AIMBOT_ENABLED then return end
+    if getgenv().AIMBOT_SHOOTONLY and not shooting then return end
+
+    local t = getTarget()
+    if t then
+        Camera.CFrame = Camera.CFrame:Lerp(
+            CFrame.new(Camera.CFrame.Position, t.Position),
+            0.18
+        )
+    end
+end)
+
+warn("✅ Aimbot PRO UI Profissional carregado (FIXED)")
