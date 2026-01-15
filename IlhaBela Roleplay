@@ -1,191 +1,136 @@
---  IlhaBela Roleplay Bot (LocalScript)
--- Otimizado para executores modernos
+-- Ilha Bela RP Bot - 2026 Ronix Compatible
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
-local mouse = player:GetMouse()
 local camera = Workspace.CurrentCamera
 
-local isBotEnabled = false
-local isAimbotEnabled = false
-local isShootbotEnabled = false
-local isESPEnabled = false
+-- Toggles
+local bot = false
+local aimbot = false
+local esp = false
 
-local espObjects = {}
+-- ESP storage
+local espCache = {}
 
--- Função para pegar o RootPart com segurança
-local function getRootPart(character)
-    return character and character:FindFirstChild("HumanoidRootPart")
+-- Utils
+local function getChar(p)
+    return p.Character
 end
 
--- Função para criar ESP
-local function createESP(target)
-    if espObjects[target] then return end
-    local espPart = Instance.new("Part")
-    espPart.Size = Vector3.new(0.5, 0.5, 0.5)
-    espPart.Anchored = true
-    espPart.CanCollide = false
-    espPart.Transparency = 0.5
-    espPart.Color = Color3.new(1, 0, 0)
-    espPart.Parent = Workspace
-    espObjects[target] = espPart
+local function getRoot(char)
+    return char and char:FindFirstChild("HumanoidRootPart")
 end
 
--- Remove todos ESP
-local function removeESP()
-    for _, part in pairs(espObjects) do
-        if part then part:Destroy() end
+-- ================= ESP (HIGHLIGHT) =================
+local function createESP(char)
+    if espCache[char] then return end
+    local hl = Instance.new("Highlight")
+    hl.FillColor = Color3.fromRGB(255, 0, 0)
+    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+    hl.FillTransparency = 0.5
+    hl.Adornee = char
+    hl.Parent = char
+    espCache[char] = hl
+end
+
+local function clearESP()
+    for _, v in pairs(espCache) do
+        if v then v:Destroy() end
     end
-    espObjects = {}
+    espCache = {}
 end
 
--- Atualiza ESP apenas para jogadores visíveis na tela
-local function updateESP()
-    for p, part in pairs(espObjects) do
-        local rootPart = getRootPart(p.Parent or p)
-        if rootPart then
-            local screenPos, onScreen = camera:WorldToViewportPoint(rootPart.Position)
-            if onScreen then
-                part.Position = rootPart.Position
-                part.Transparency = 0.5
-            else
-                part.Transparency = 1 -- esconde se fora da tela
-            end
-        else
-            part:Destroy()
-            espObjects[p] = nil
+-- ================= TARGET =================
+local function getTarget()
+    local mousePos = UserInputService:GetMouseLocation()
+    local ray = camera:ViewportPointToRay(mousePos.X, mousePos.Y)
+
+    local params = RaycastParams.new()
+    params.FilterDescendantsInstances = {player.Character}
+    params.FilterType = Enum.RaycastFilterType.Blacklist
+
+    local result = Workspace:Raycast(ray.Origin, ray.Direction * 1000, params)
+    if result and result.Instance then
+        local model = result.Instance:FindFirstAncestorOfClass("Model")
+        if model and model:FindFirstChild("Humanoid") then
+            return model
         end
     end
 end
 
--- Ativar/desativar ESP
-local function toggleESP()
-    if isESPEnabled then
-        removeESP()
-    else
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= player then
-                local rootPart = getRootPart(p.Character)
-                if rootPart then
-                    createESP(rootPart)
-                end
-            end
-        end
-    end
-    isESPEnabled = not isESPEnabled
-end
-
--- Funções do bot
-local function toggleAimbot() isAimbotEnabled = not isAimbotEnabled end
-local function toggleShootbot() isShootbotEnabled = not isShootbotEnabled end
-
-local function toggleBot()
-    isBotEnabled = not isBotEnabled
-    isAimbotEnabled = false
-    isShootbotEnabled = false
-    isESPEnabled = false
-    removeESP()
-end
-
--- Função de mira suave
-local function aimAt(targetPos, speed)
-    speed = speed or 0.2
-    local camPos = camera.CFrame.Position
-    local dir = (targetPos - camPos).unit
-    local targetCFrame = CFrame.new(camPos, camPos + dir)
-    camera.CFrame = camera.CFrame:Lerp(targetCFrame, speed)
-end
-
--- Função do loop do bot
-local function botLoop()
-    if not isBotEnabled then return end
-
-    local target = nil
-    local ray = camera:ScreenPointToRay(mouse.X, mouse.Y)
-    local hit, _ = Workspace:FindPartOnRayWithIgnoreList(ray, {player.Character})
-
-    if hit then target = hit end
-
-    if target then
-        local humanoid = target.Parent:FindFirstChild("Humanoid")
-        local rootPart = humanoid and getRootPart(humanoid.Parent)
-
-        if rootPart then
-            -- Aimbot suave
-            if isAimbotEnabled then
-                aimAt(rootPart.Position, 0.3) -- 0.3 = suavidade da mira
-            end
-
-            -- Shootbot visual
-            if isShootbotEnabled then
-                local shootPart = Instance.new("Part")
-                shootPart.Size = Vector3.new(0.1, 0.1, 0.1)
-                shootPart.Anchored = true
-                shootPart.CanCollide = false
-                shootPart.Transparency = 0.5
-                shootPart.Color = Color3.new(1, 0, 0)
-                shootPart.Position = rootPart.Position
-                shootPart.Parent = Workspace
-                task.delay(0.1, function() shootPart:Destroy() end)
-            end
-        end
-    end
-end
-
--- Conecta ao RenderStepped
+-- ================= LOOP =================
 RunService.RenderStepped:Connect(function()
-    if isESPEnabled then updateESP() end
-    botLoop()
+    if not bot then return end
+
+    local target = getTarget()
+    if not target then return end
+
+    local root = getRoot(target)
+    if not root then return end
+
+    -- AIMBOT
+    if aimbot then
+        camera.CFrame = CFrame.new(
+            camera.CFrame.Position,
+            root.Position
+        )
+    end
 end)
 
--- ==============================
--- GUI do Menu
--- ==============================
-local gui = Instance.new("ScreenGui")
-gui.Parent = player:WaitForChild("PlayerGui")
+-- ================= ESP UPDATE =================
+RunService.RenderStepped:Connect(function()
+    if not esp then return end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= player then
+            local char = getChar(p)
+            if char then
+                createESP(char)
+            end
+        end
+    end
+end)
 
-local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0.5, 0, 0.7, 0)
-mainFrame.Position = UDim2.new(0.25, 0, 0.15, 0)
-mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-mainFrame.BorderColor3 = Color3.fromRGB(128, 128, 128)
-mainFrame.BorderSizePixel = 2
-mainFrame.Parent = gui
+-- ================= GUI =================
+local gui = Instance.new("ScreenGui", player.PlayerGui)
 
-local title = Instance.new("TextLabel")
-title.Text = "Ilha Bela Roleplay Bot"
-title.Size = UDim2.new(1, 0, 0.2, 0)
-title.Position = UDim2.new(0, 0, 0, 0)
-title.TextColor3 = Color3.new(1, 1, 1)
-title.Font = Enum.Font.SourceSansBold
-title.TextSize = 16
-title.Parent = mainFrame
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 220, 0, 180)
+frame.Position = UDim2.new(0.05, 0, 0.3, 0)
+frame.BackgroundColor3 = Color3.fromRGB(25,25,25)
 
-local function createButton(text, y, func)
-    local btn = Instance.new("TextButton")
-    btn.Text = text
-    btn.Size = UDim2.new(1, 0, 0.2, 0)
-    btn.Position = UDim2.new(0, 0, y, 0)
-    btn.TextColor3 = Color3.new(1, 1, 1)
-    btn.Font = Enum.Font.SourceSans
-    btn.Parent = mainFrame
-    btn.MouseButton1Click:Connect(func)
+local function button(text, y, func)
+    local b = Instance.new("TextButton", frame)
+    b.Size = UDim2.new(1, 0, 0, 40)
+    b.Position = UDim2.new(0, 0, y, 0)
+    b.Text = text
+    b.TextColor3 = Color3.new(1,1,1)
+    b.BackgroundColor3 = Color3.fromRGB(40,40,40)
+    b.MouseButton1Click:Connect(func)
 end
 
-createButton("Ativar Bot", 0.2, toggleBot)
-createButton("Bot ao Mira", 0.4, toggleAimbot)
-createButton("Bot a Atirar", 0.6, toggleShootbot)
-createButton("ESP Skeleton", 0.8, toggleESP)
+button("Ativar Bot", 0, function()
+    bot = not bot
+    if not bot then
+        aimbot = false
+        esp = false
+        clearESP()
+    end
+end)
 
--- Botão fechar
-local closeBtn = Instance.new("TextButton")
-closeBtn.Text = "X"
-closeBtn.Size = UDim2.new(0.1, 0, 0.1, 0)
-closeBtn.Position = UDim2.new(0.9, 0, 0.9, 0)
-closeBtn.TextColor3 = Color3.new(1, 1, 1)
-closeBtn.Font = Enum.Font.SourceSans
-closeBtn.Parent = mainFrame
-closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end)
+button("Aimbot", 40, function()
+    aimbot = not aimbot
+end)
+
+button("ESP", 80, function()
+    esp = not esp
+    if not esp then clearESP() end
+end)
+
+button("Fechar", 120, function()
+    gui:Destroy()
+    clearESP()
+end)
