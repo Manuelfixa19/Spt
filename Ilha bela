@@ -1,0 +1,147 @@
+-- ======================================================
+-- AUTO ESP SKELETON | DELTA + RONIX
+-- Funciona em R6, R15 e rigs custom (RP)
+-- Jogo: Ilha Bela Roleplay (e similares)
+-- Tecla: E (ON / OFF)
+-- ======================================================
+
+-- Serviços
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+-- Estado
+local ESP_ENABLED = false
+local ESP_CACHE = {}
+
+-- ===============================
+-- FUNÇÕES BASE
+-- ===============================
+
+local function newLine()
+    local line = Drawing.new("Line")
+    line.Thickness = 2
+    line.Transparency = 1
+    line.Color = Color3.fromRGB(255, 0, 0)
+    line.Visible = false
+    return line
+end
+
+local function getCharacterParts(character)
+    local parts = {}
+    for _, obj in ipairs(character:GetChildren()) do
+        if obj:IsA("BasePart")
+            and obj.Name ~= "HumanoidRootPart"
+            and obj.Name ~= "Handle" then
+            table.insert(parts, obj)
+        end
+    end
+    return parts
+end
+
+local function createESP(player)
+    if player == LocalPlayer then return end
+    if ESP_CACHE[player] then return end
+    ESP_CACHE[player] = {}
+end
+
+local function removeESP(player)
+    if ESP_CACHE[player] then
+        for _, line in ipairs(ESP_CACHE[player]) do
+            line:Remove()
+        end
+        ESP_CACHE[player] = nil
+    end
+end
+
+-- ===============================
+-- ATUALIZAÇÃO DO ESP
+-- ===============================
+
+RunService.RenderStepped:Connect(function()
+    if not ESP_ENABLED then return end
+
+    for player, lines in pairs(ESP_CACHE) do
+        local character = player.Character
+        if not character then
+            removeESP(player)
+            continue
+        end
+
+        local parts = getCharacterParts(character)
+        if #parts < 2 then
+            for _, l in ipairs(lines) do
+                l.Visible = false
+            end
+            continue
+        end
+
+        -- Garante linhas suficientes
+        while #lines < #parts do
+            table.insert(lines, newLine())
+        end
+
+        for i = 1, #parts - 1 do
+            local p1 = parts[i]
+            local p2 = parts[i + 1]
+            local line = lines[i]
+
+            local s1, v1 = Camera:WorldToViewportPoint(p1.Position)
+            local s2, v2 = Camera:WorldToViewportPoint(p2.Position)
+
+            if v1 and v2 then
+                line.From = Vector2.new(s1.X, s1.Y)
+                line.To = Vector2.new(s2.X, s2.Y)
+                line.Visible = true
+            else
+                line.Visible = false
+            end
+        end
+    end
+end)
+
+-- ===============================
+-- GERENCIAMENTO DE PLAYERS
+-- ===============================
+
+Players.PlayerAdded:Connect(function(player)
+    if ESP_ENABLED then
+        createESP(player)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    removeESP(player)
+end)
+
+-- ===============================
+-- TOGGLE (TECLA E)
+-- ===============================
+
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.E then
+        ESP_ENABLED = not ESP_ENABLED
+
+        if ESP_ENABLED then
+            for _, plr in ipairs(Players:GetPlayers()) do
+                createESP(plr)
+            end
+        else
+            for plr in pairs(ESP_CACHE) do
+                removeESP(plr)
+            end
+        end
+    end
+end)
+
+-- ===============================
+-- AUTO START (OPCIONAL)
+-- ===============================
+-- Descomente se quiser iniciar ligado
+-- ESP_ENABLED = true
+-- for _, plr in ipairs(Players:GetPlayers()) do
+--     createESP(plr)
+-- end
