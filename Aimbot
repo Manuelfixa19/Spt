@@ -1,11 +1,10 @@
 --================================
--- YASKFUCK | MOBILE PANEL (RONIX)
--- PROX ESP: HIGHLIGHT + BOX + NAME
+-- YASKFUCK | ESP GUI (RONIX)
+-- BOX + NAME | THROUGH WALLS
 --================================
 
 -- SERVICES
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local lp = Players.LocalPlayer
@@ -13,241 +12,105 @@ local lp = Players.LocalPlayer
 --========================
 -- CONFIG
 --========================
-local PROX_DIST = 8
-local enabled = false
+local MAX_DISTANCE = 500 -- distância longa (aumente se quiser)
+local ENABLED = true
 
-local highlights = {}
-local espBoxes = {}
-local nameTags = {}
-local minimized = false
+local espCache = {}
 
 --========================
--- GUI
+-- ESP FUNCTION
 --========================
-local gui = Instance.new("ScreenGui")
-gui.Name = "YaskfuckUI"
-gui.ResetOnSpawn = false
-gui.Parent = lp:WaitForChild("PlayerGui")
+local function createESP(plr)
+	if plr == lp then return end
+	if espCache[plr] then return end
 
-local main = Instance.new("Frame")
-main.Size = UDim2.new(0,200,0,140)
-main.Position = UDim2.new(0.03,0,0.28,0)
-main.BackgroundColor3 = Color3.fromRGB(20,20,20)
-main.BorderSizePixel = 0
-main.Parent = gui
+	local char = plr.Character
+	if not char then return end
 
-local corner = Instance.new("UICorner", main)
-corner.CornerRadius = UDim.new(0,14)
-
-local stroke = Instance.new("UIStroke", main)
-stroke.Color = Color3.fromRGB(0,200,255)
-stroke.Thickness = 1.2
-
---========================
--- DRAG (2026)
---========================
-do
-	local dragging = false
-	local dragStart, startPos
-
-	main.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1
-		or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = true
-			dragStart = input.Position
-			startPos = main.Position
-		end
-	end)
-
-	main.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1
-		or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = false
-		end
-	end)
-
-	UserInputService.InputChanged:Connect(function(input)
-		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
-		or input.UserInputType == Enum.UserInputType.Touch) then
-			local delta = input.Position - dragStart
-			main.Position = UDim2.new(
-				startPos.X.Scale, startPos.X.Offset + delta.X,
-				startPos.Y.Scale, startPos.Y.Offset + delta.Y
-			)
-		end
-	end)
-end
-
---========================
--- TITLE
---========================
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1,0,0,24)
-title.BackgroundTransparency = 1
-title.Text = "yaskfuck"
-title.Font = Enum.Font.GothamBold
-title.TextSize = 16
-title.TextColor3 = Color3.fromRGB(0,200,255)
-title.Parent = main
-
---========================
--- MINIMIZE
---========================
-local minBtn = Instance.new("TextButton")
-minBtn.Size = UDim2.new(0,24,0,24)
-minBtn.Position = UDim2.new(1,-28,0,2)
-minBtn.Text = "-"
-minBtn.Font = Enum.Font.GothamBold
-minBtn.TextSize = 18
-minBtn.TextColor3 = Color3.new(1,1,1)
-minBtn.BackgroundColor3 = Color3.fromRGB(35,35,35)
-minBtn.Parent = main
-
-local minCorner = Instance.new("UICorner", minBtn)
-minCorner.CornerRadius = UDim.new(1,0)
-
-local originalSize = main.Size
-
-minBtn.MouseButton1Click:Connect(function()
-	minimized = not minimized
-	if minimized then
-		main.Size = UDim2.new(0,54,0,54)
-		title.Visible = false
-		minBtn.Text = "+"
-		corner.CornerRadius = UDim.new(1,0)
-	else
-		main.Size = originalSize
-		title.Visible = true
-		minBtn.Text = "-"
-		corner.CornerRadius = UDim.new(0,14)
-	end
-end)
-
---========================
--- TOGGLE BUTTON
---========================
-local proxBtn = Instance.new("TextButton")
-proxBtn.Size = UDim2.new(0,170,0,34)
-proxBtn.Position = UDim2.new(0.5,-85,1,-42)
-proxBtn.Text = "PROX ESP: OFF"
-proxBtn.Font = Enum.Font.GothamBold
-proxBtn.TextSize = 15
-proxBtn.TextColor3 = Color3.new(1,1,1)
-proxBtn.BackgroundColor3 = Color3.fromRGB(45,45,45)
-proxBtn.Parent = main
-
-local proxCorner = Instance.new("UICorner", proxBtn)
-proxCorner.CornerRadius = UDim.new(0,10)
-
---========================
--- ESP FUNCTIONS
---========================
-local function addESP(plr, char)
-	if espBoxes[char] then return end
-
-	-- Highlight
-	local h = Instance.new("Highlight")
-	h.Adornee = char
-	h.Parent = workspace
-	h.FillColor = Color3.fromRGB(255,0,0)
-	h.OutlineColor = Color3.fromRGB(255,80,80)
-	h.FillTransparency = 0.4
-	highlights[char] = h
-
-	-- BOX (SelectionBox - Ronix safe)
-	local box = Instance.new("SelectionBox")
-	box.Adornee = char
-	box.LineThickness = 0.05
-	box.Color3 = Color3.fromRGB(255,0,0)
-	box.SurfaceTransparency = 1
-	box.Parent = workspace
-	espBoxes[char] = box
-
-	-- NAME
 	local hrp = char:FindFirstChild("HumanoidRootPart")
-	if hrp then
-		local bill = Instance.new("BillboardGui")
-		bill.Size = UDim2.new(0,200,0,40)
-		bill.StudsOffset = Vector3.new(0,3.5,0)
-		bill.AlwaysOnTop = true
-		bill.Adornee = hrp
-		bill.Parent = workspace
+	local hum = char:FindFirstChild("Humanoid")
+	if not hrp or not hum or hum.Health <= 0 then return end
 
-		local txt = Instance.new("TextLabel")
-		txt.Size = UDim2.new(1,0,1,0)
-		txt.BackgroundTransparency = 1
-		txt.Text = plr.Name
-		txt.Font = Enum.Font.GothamBold
-		txt.TextSize = 14
-		txt.TextColor3 = Color3.fromRGB(255,80,80)
-		txt.TextStrokeTransparency = 0
-		txt.Parent = bill
+	-- Billboard
+	local bill = Instance.new("BillboardGui")
+	bill.Name = "ESP_GUI"
+	bill.Adornee = hrp
+	bill.AlwaysOnTop = true
+	bill.Size = UDim2.new(0, 120, 0, 160)
+	bill.StudsOffset = Vector3.new(0, 0, 0)
+	bill.MaxDistance = MAX_DISTANCE
+	bill.Parent = char
 
-		nameTags[char] = bill
+	-- Box
+	local box = Instance.new("Frame")
+	box.Size = UDim2.new(1, 0, 1, 0)
+	box.BackgroundTransparency = 1
+	box.Parent = bill
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromRGB(255, 0, 0)
+	stroke.Thickness = 2
+	stroke.Parent = box
+
+	-- Name
+	local name = Instance.new("TextLabel")
+	name.Size = UDim2.new(1, 0, 0, 20)
+	name.Position = UDim2.new(0, 0, -0.15, 0)
+	name.BackgroundTransparency = 1
+	name.Text = plr.Name
+	name.Font = Enum.Font.GothamBold
+	name.TextSize = 14
+	name.TextColor3 = Color3.fromRGB(255, 80, 80)
+	name.TextStrokeTransparency = 0
+	name.Parent = bill
+
+	espCache[plr] = bill
+end
+
+--========================
+-- REMOVE ESP
+--========================
+local function removeESP(plr)
+	if espCache[plr] then
+		espCache[plr]:Destroy()
+		espCache[plr] = nil
 	end
 end
 
-local function removeESP(char)
-	if highlights[char] then
-		highlights[char]:Destroy()
-		highlights[char] = nil
-	end
-	if espBoxes[char] then
-		espBoxes[char]:Destroy()
-		espBoxes[char] = nil
-	end
-	if nameTags[char] then
-		nameTags[char]:Destroy()
-		nameTags[char] = nil
-	end
-end
-
 --========================
--- TOGGLE
---========================
-proxBtn.MouseButton1Click:Connect(function()
-	enabled = not enabled
-	if enabled then
-		proxBtn.Text = "PROX ESP: ON"
-		proxBtn.BackgroundColor3 = Color3.fromRGB(200,0,0)
-	else
-		proxBtn.Text = "PROX ESP: OFF"
-		proxBtn.BackgroundColor3 = Color3.fromRGB(45,45,45)
-		for c in pairs(highlights) do
-			removeESP(c)
-		end
-	end
-end)
-
---========================
--- PROX LOOP
+-- UPDATE LOOP
 --========================
 task.spawn(function()
 	while true do
-		task.wait(0.15)
-		if not enabled then continue end
+		task.wait(0.5)
+		if not ENABLED then continue end
 
-		local char = lp.Character
-		local hrp = char and char:FindFirstChild("HumanoidRootPart")
-		if not hrp then continue end
+		local myChar = lp.Character
+		local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+		if not myHRP then continue end
 
 		for _,plr in ipairs(Players:GetPlayers()) do
-			if plr ~= lp and plr.Character then
-				local och = plr.Character
-				local ohrp = och:FindFirstChild("HumanoidRootPart")
-				local hum = och:FindFirstChild("Humanoid")
+			if plr ~= lp then
+				local char = plr.Character
+				local hrp = char and char:FindFirstChild("HumanoidRootPart")
+				local hum = char and char:FindFirstChild("Humanoid")
 
-				if ohrp and hum and hum.Health > 0 then
-					local dist = (hrp.Position - ohrp.Position).Magnitude
-					if dist <= PROX_DIST then
-						addESP(plr, och)
+				if hrp and hum and hum.Health > 0 then
+					local dist = (myHRP.Position - hrp.Position).Magnitude
+					if dist <= MAX_DISTANCE then
+						createESP(plr)
 					else
-						removeESP(och)
+						removeESP(plr)
 					end
 				else
-					removeESP(och)
+					removeESP(plr)
 				end
 			end
 		end
 	end
 end)
+
+--========================
+-- CLEANUP ON RESPAWN
+--========================
+Players.PlayerRemoving:Connect(removeESP)
