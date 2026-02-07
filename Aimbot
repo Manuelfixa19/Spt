@@ -1,28 +1,39 @@
 --================================
--- YASKFUCK | ESP GUI (RONIX)
--- BOX + NAME | THROUGH WALLS
+-- YASKFUCK | ESP SKELETON (RONIX)
+-- GUI 2D | THROUGH WALLS | LONG DIST
 --================================
 
 -- SERVICES
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-
 local lp = Players.LocalPlayer
 
 --========================
 -- CONFIG
 --========================
-local MAX_DISTANCE = 500 -- distância longa (aumente se quiser)
-local ENABLED = true
+local MAX_DISTANCE = 800
+local UPDATE_RATE = 0.3
 
 local espCache = {}
 
 --========================
--- ESP FUNCTION
+-- UTILS
+--========================
+local function newLine(parent, size, pos)
+	local f = Instance.new("Frame")
+	f.BorderSizePixel = 0
+	f.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+	f.Size = size
+	f.Position = pos
+	f.AnchorPoint = Vector2.new(0.5, 0.5)
+	f.Parent = parent
+	return f
+end
+
+--========================
+-- CREATE SKELETON
 --========================
 local function createESP(plr)
-	if plr == lp then return end
-	if espCache[plr] then return end
+	if plr == lp or espCache[plr] then return end
 
 	local char = plr.Character
 	if not char then return end
@@ -33,36 +44,37 @@ local function createESP(plr)
 
 	-- Billboard
 	local bill = Instance.new("BillboardGui")
-	bill.Name = "ESP_GUI"
+	bill.Name = "ESP_SKELETON"
 	bill.Adornee = hrp
 	bill.AlwaysOnTop = true
-	bill.Size = UDim2.new(0, 120, 0, 160)
-	bill.StudsOffset = Vector3.new(0, 0, 0)
+	bill.Size = UDim2.new(0, 120, 0, 180)
 	bill.MaxDistance = MAX_DISTANCE
+	bill.StudsOffset = Vector3.new(0, 0, 0)
 	bill.Parent = char
 
-	-- Box
-	local box = Instance.new("Frame")
-	box.Size = UDim2.new(1, 0, 1, 0)
-	box.BackgroundTransparency = 1
-	box.Parent = bill
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(255, 0, 0)
-	stroke.Thickness = 2
-	stroke.Parent = box
-
-	-- Name
+	-- NAME
 	local name = Instance.new("TextLabel")
-	name.Size = UDim2.new(1, 0, 0, 20)
-	name.Position = UDim2.new(0, 0, -0.15, 0)
+	name.Size = UDim2.new(1, 0, 0, 16)
+	name.Position = UDim2.new(0, 0, -0.12, 0)
 	name.BackgroundTransparency = 1
 	name.Text = plr.Name
 	name.Font = Enum.Font.GothamBold
-	name.TextSize = 14
+	name.TextSize = 12
 	name.TextColor3 = Color3.fromRGB(255, 80, 80)
 	name.TextStrokeTransparency = 0
 	name.Parent = bill
+
+	-- SKELETON (2D approximation)
+	-- head -> torso
+	newLine(bill, UDim2.new(0, 2, 0, 40), UDim2.new(0.5, 0, 0.28, 0))
+	-- torso
+	newLine(bill, UDim2.new(0, 2, 0, 55), UDim2.new(0.5, 0, 0.48, 0))
+	-- arms
+	newLine(bill, UDim2.new(0, 45, 0, 2), UDim2.new(0.5, 0, 0.42, 0))
+	-- left leg
+	newLine(bill, UDim2.new(0, 2, 0, 45), UDim2.new(0.46, 0, 0.7, 0))
+	-- right leg
+	newLine(bill, UDim2.new(0, 2, 0, 45), UDim2.new(0.54, 0, 0.7, 0))
 
 	espCache[plr] = bill
 end
@@ -78,18 +90,17 @@ local function removeESP(plr)
 end
 
 --========================
--- UPDATE LOOP
+-- LOOP
 --========================
 task.spawn(function()
 	while true do
-		task.wait(0.5)
-		if not ENABLED then continue end
+		task.wait(UPDATE_RATE)
 
 		local myChar = lp.Character
 		local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
 		if not myHRP then continue end
 
-		for _,plr in ipairs(Players:GetPlayers()) do
+		for _, plr in ipairs(Players:GetPlayers()) do
 			if plr ~= lp then
 				local char = plr.Character
 				local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -110,7 +121,4 @@ task.spawn(function()
 	end
 end)
 
---========================
--- CLEANUP ON RESPAWN
---========================
 Players.PlayerRemoving:Connect(removeESP)
