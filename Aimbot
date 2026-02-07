@@ -1,121 +1,127 @@
 --================================
--- YASKFUCK | ESP SKELETON (RONIX)
--- GUI 2D | THROUGH WALLS | LONG DIST
+-- ESP SKELETON SYNC (RONIX)
+-- REAL SIZE + REAL MOVEMENT
 --================================
 
--- SERVICES
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+
 local lp = Players.LocalPlayer
-
---========================
--- CONFIG
---========================
 local MAX_DISTANCE = 800
-local UPDATE_RATE = 0.3
 
-local espCache = {}
+local esp = {}
 
---========================
--- UTILS
---========================
-local function newLine(parent, size, pos)
+-- pares de ossos (R15 + R6 compatível)
+local bones = {
+	{"Head","UpperTorso"},
+	{"UpperTorso","LowerTorso"},
+
+	{"UpperTorso","LeftUpperArm"},
+	{"LeftUpperArm","LeftLowerArm"},
+	{"LeftLowerArm","LeftHand"},
+
+	{"UpperTorso","RightUpperArm"},
+	{"RightUpperArm","RightLowerArm"},
+	{"RightLowerArm","RightHand"},
+
+	{"LowerTorso","LeftUpperLeg"},
+	{"LeftUpperLeg","LeftLowerLeg"},
+	{"LeftLowerLeg","LeftFoot"},
+
+	{"LowerTorso","RightUpperLeg"},
+	{"RightUpperLeg","RightLowerLeg"},
+	{"RightLowerLeg","RightFoot"},
+}
+
+local function newLine(parent)
 	local f = Instance.new("Frame")
 	f.BorderSizePixel = 0
-	f.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-	f.Size = size
-	f.Position = pos
-	f.AnchorPoint = Vector2.new(0.5, 0.5)
+	f.BackgroundColor3 = Color3.fromRGB(255,0,0)
+	f.AnchorPoint = Vector2.new(0.5,0.5)
 	f.Parent = parent
 	return f
 end
 
---========================
--- CREATE SKELETON
---========================
 local function createESP(plr)
-	if plr == lp or espCache[plr] then return end
+	if esp[plr] then return end
 
-	local char = plr.Character
-	if not char then return end
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "SkeletonESP"
+	gui.Size = UDim2.new(4,0,6,0)
+	gui.AlwaysOnTop = true
+	gui.MaxDistance = MAX_DISTANCE
+	gui.Parent = plr.Character
 
-	local hrp = char:FindFirstChild("HumanoidRootPart")
-	local hum = char:FindFirstChild("Humanoid")
-	if not hrp or not hum or hum.Health <= 0 then return end
-
-	-- Billboard
-	local bill = Instance.new("BillboardGui")
-	bill.Name = "ESP_SKELETON"
-	bill.Adornee = hrp
-	bill.AlwaysOnTop = true
-	bill.Size = UDim2.new(0, 120, 0, 180)
-	bill.MaxDistance = MAX_DISTANCE
-	bill.StudsOffset = Vector3.new(0, 0, 0)
-	bill.Parent = char
-
-	-- NAME
 	local name = Instance.new("TextLabel")
-	name.Size = UDim2.new(1, 0, 0, 16)
-	name.Position = UDim2.new(0, 0, -0.12, 0)
 	name.BackgroundTransparency = 1
+	name.Size = UDim2.new(1,0,0,16)
+	name.Position = UDim2.new(0,0,-0.15,0)
 	name.Text = plr.Name
-	name.Font = Enum.Font.GothamBold
 	name.TextSize = 12
-	name.TextColor3 = Color3.fromRGB(255, 80, 80)
+	name.Font = Enum.Font.GothamBold
+	name.TextColor3 = Color3.fromRGB(255,80,80)
 	name.TextStrokeTransparency = 0
-	name.Parent = bill
+	name.Parent = gui
 
-	-- SKELETON (2D approximation)
-	-- head -> torso
-	newLine(bill, UDim2.new(0, 2, 0, 40), UDim2.new(0.5, 0, 0.28, 0))
-	-- torso
-	newLine(bill, UDim2.new(0, 2, 0, 55), UDim2.new(0.5, 0, 0.48, 0))
-	-- arms
-	newLine(bill, UDim2.new(0, 45, 0, 2), UDim2.new(0.5, 0, 0.42, 0))
-	-- left leg
-	newLine(bill, UDim2.new(0, 2, 0, 45), UDim2.new(0.46, 0, 0.7, 0))
-	-- right leg
-	newLine(bill, UDim2.new(0, 2, 0, 45), UDim2.new(0.54, 0, 0.7, 0))
+	local lines = {}
+	for i = 1,#bones do
+		lines[i] = newLine(gui)
+	end
 
-	espCache[plr] = bill
+	esp[plr] = {gui = gui, lines = lines}
 end
 
---========================
--- REMOVE ESP
---========================
 local function removeESP(plr)
-	if espCache[plr] then
-		espCache[plr]:Destroy()
-		espCache[plr] = nil
+	if esp[plr] then
+		esp[plr].gui:Destroy()
+		esp[plr] = nil
 	end
 end
 
---========================
--- LOOP
---========================
-task.spawn(function()
-	while true do
-		task.wait(UPDATE_RATE)
+-- UPDATE
+RunService.RenderStepped:Connect(function()
+	for _,plr in ipairs(Players:GetPlayers()) do
+		if plr ~= lp and plr.Character then
+			local char = plr.Character
+			local hrp = char:FindFirstChild("HumanoidRootPart")
+			local hum = char:FindFirstChild("Humanoid")
 
-		local myChar = lp.Character
-		local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-		if not myHRP then continue end
-
-		for _, plr in ipairs(Players:GetPlayers()) do
-			if plr ~= lp then
-				local char = plr.Character
-				local hrp = char and char:FindFirstChild("HumanoidRootPart")
-				local hum = char and char:FindFirstChild("Humanoid")
-
-				if hrp and hum and hum.Health > 0 then
-					local dist = (myHRP.Position - hrp.Position).Magnitude
-					if dist <= MAX_DISTANCE then
-						createESP(plr)
-					else
-						removeESP(plr)
-					end
-				else
-					removeESP(plr)
+			if hrp and hum and hum.Health > 0 then
+				if not esp[plr] then
+					createESP(plr)
 				end
+
+				local data = esp[plr]
+				data.gui.Adornee = hrp
+
+				for i,b in ipairs(bones) do
+					local p0 = char:FindFirstChild(b[1])
+					local p1 = char:FindFirstChild(b[2])
+					local line = data.lines[i]
+
+					if p0 and p1 then
+						local v0, on1 = Camera:WorldToViewportPoint(p0.Position)
+						local v1, on2 = Camera:WorldToViewportPoint(p1.Position)
+
+						if on1 and on2 then
+							local dx = v1.X - v0.X
+							local dy = v1.Y - v0.Y
+							local dist = math.sqrt(dx*dx + dy*dy)
+
+							line.Size = UDim2.new(0, dist, 0, 2)
+							line.Position = UDim2.new(0, (v0.X+v1.X)/2, 0, (v0.Y+v1.Y)/2)
+							line.Rotation = math.deg(math.atan2(dy, dx))
+							line.Visible = true
+						else
+							line.Visible = false
+						end
+					else
+						line.Visible = false
+					end
+				end
+			else
+				removeESP(plr)
 			end
 		end
 	end
