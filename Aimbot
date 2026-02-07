@@ -1,6 +1,6 @@
 --================================
--- YASKFUCK | MOBILE PANEL (2026)
--- PROXIMITY HIGHLIGHT (LOCAL)
+-- YASKFUCK | MOBILE PANEL (RONIX)
+-- PROX ESP: HIGHLIGHT + BOX + NAME
 --================================
 
 -- SERVICES
@@ -14,12 +14,15 @@ local lp = Players.LocalPlayer
 -- CONFIG
 --========================
 local PROX_DIST = 8
-local highlightAtivo = false
+local enabled = false
+
 local highlights = {}
+local espBoxes = {}
+local nameTags = {}
 local minimized = false
 
 --========================
--- GUI SETUP
+-- GUI
 --========================
 local gui = Instance.new("ScreenGui")
 gui.Name = "YaskfuckUI"
@@ -27,20 +30,18 @@ gui.ResetOnSpawn = false
 gui.Parent = lp:WaitForChild("PlayerGui")
 
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0, 200, 0, 140)
-main.Position = UDim2.new(0.03, 0, 0.28, 0)
+main.Size = UDim2.new(0,200,0,140)
+main.Position = UDim2.new(0.03,0,0.28,0)
 main.BackgroundColor3 = Color3.fromRGB(20,20,20)
 main.BorderSizePixel = 0
 main.Parent = gui
 
-local corner = Instance.new("UICorner")
+local corner = Instance.new("UICorner", main)
 corner.CornerRadius = UDim.new(0,14)
-corner.Parent = main
 
-local stroke = Instance.new("UIStroke")
+local stroke = Instance.new("UIStroke", main)
 stroke.Color = Color3.fromRGB(0,200,255)
 stroke.Thickness = 1.2
-stroke.Parent = main
 
 --========================
 -- DRAG (2026)
@@ -70,10 +71,8 @@ do
 		or input.UserInputType == Enum.UserInputType.Touch) then
 			local delta = input.Position - dragStart
 			main.Position = UDim2.new(
-				startPos.X.Scale,
-				startPos.X.Offset + delta.X,
-				startPos.Y.Scale,
-				startPos.Y.Offset + delta.Y
+				startPos.X.Scale, startPos.X.Offset + delta.X,
+				startPos.Y.Scale, startPos.Y.Offset + delta.Y
 			)
 		end
 	end)
@@ -92,7 +91,7 @@ title.TextColor3 = Color3.fromRGB(0,200,255)
 title.Parent = main
 
 --========================
--- MINIMIZE BUTTON
+-- MINIMIZE
 --========================
 local minBtn = Instance.new("TextButton")
 minBtn.Size = UDim2.new(0,24,0,24)
@@ -100,13 +99,12 @@ minBtn.Position = UDim2.new(1,-28,0,2)
 minBtn.Text = "-"
 minBtn.Font = Enum.Font.GothamBold
 minBtn.TextSize = 18
-minBtn.TextColor3 = Color3.fromRGB(255,255,255)
+minBtn.TextColor3 = Color3.new(1,1,1)
 minBtn.BackgroundColor3 = Color3.fromRGB(35,35,35)
 minBtn.Parent = main
 
-local minCorner = Instance.new("UICorner")
+local minCorner = Instance.new("UICorner", minBtn)
 minCorner.CornerRadius = UDim.new(1,0)
-minCorner.Parent = minBtn
 
 local originalSize = main.Size
 
@@ -126,43 +124,81 @@ minBtn.MouseButton1Click:Connect(function()
 end)
 
 --========================
--- PROX BUTTON
+-- TOGGLE BUTTON
 --========================
 local proxBtn = Instance.new("TextButton")
 proxBtn.Size = UDim2.new(0,170,0,34)
 proxBtn.Position = UDim2.new(0.5,-85,1,-42)
-proxBtn.Text = "PROX ALERT: OFF"
+proxBtn.Text = "PROX ESP: OFF"
 proxBtn.Font = Enum.Font.GothamBold
 proxBtn.TextSize = 15
-proxBtn.TextColor3 = Color3.fromRGB(255,255,255)
+proxBtn.TextColor3 = Color3.new(1,1,1)
 proxBtn.BackgroundColor3 = Color3.fromRGB(45,45,45)
 proxBtn.Parent = main
 
-local proxCorner = Instance.new("UICorner")
+local proxCorner = Instance.new("UICorner", proxBtn)
 proxCorner.CornerRadius = UDim.new(0,10)
-proxCorner.Parent = proxBtn
 
 --========================
--- HIGHLIGHT FUNCTIONS
+-- ESP FUNCTIONS
 --========================
-local function addHighlight(char)
-	if highlights[char] then return end
+local function addESP(plr, char)
+	if espBoxes[char] then return end
 
+	-- Highlight
 	local h = Instance.new("Highlight")
 	h.Adornee = char
 	h.Parent = workspace
 	h.FillColor = Color3.fromRGB(255,0,0)
 	h.OutlineColor = Color3.fromRGB(255,80,80)
 	h.FillTransparency = 0.4
-
 	highlights[char] = h
+
+	-- BOX (SelectionBox - Ronix safe)
+	local box = Instance.new("SelectionBox")
+	box.Adornee = char
+	box.LineThickness = 0.05
+	box.Color3 = Color3.fromRGB(255,0,0)
+	box.SurfaceTransparency = 1
+	box.Parent = workspace
+	espBoxes[char] = box
+
+	-- NAME
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if hrp then
+		local bill = Instance.new("BillboardGui")
+		bill.Size = UDim2.new(0,200,0,40)
+		bill.StudsOffset = Vector3.new(0,3.5,0)
+		bill.AlwaysOnTop = true
+		bill.Adornee = hrp
+		bill.Parent = workspace
+
+		local txt = Instance.new("TextLabel")
+		txt.Size = UDim2.new(1,0,1,0)
+		txt.BackgroundTransparency = 1
+		txt.Text = plr.Name
+		txt.Font = Enum.Font.GothamBold
+		txt.TextSize = 14
+		txt.TextColor3 = Color3.fromRGB(255,80,80)
+		txt.TextStrokeTransparency = 0
+		txt.Parent = bill
+
+		nameTags[char] = bill
+	end
 end
 
-local function removeHighlight(char)
-	local h = highlights[char]
-	if h then
-		h:Destroy()
+local function removeESP(char)
+	if highlights[char] then
+		highlights[char]:Destroy()
 		highlights[char] = nil
+	end
+	if espBoxes[char] then
+		espBoxes[char]:Destroy()
+		espBoxes[char] = nil
+	end
+	if nameTags[char] then
+		nameTags[char]:Destroy()
+		nameTags[char] = nil
 	end
 end
 
@@ -170,33 +206,29 @@ end
 -- TOGGLE
 --========================
 proxBtn.MouseButton1Click:Connect(function()
-	highlightAtivo = not highlightAtivo
-
-	if highlightAtivo then
-		proxBtn.Text = "PROX ALERT: ON"
+	enabled = not enabled
+	if enabled then
+		proxBtn.Text = "PROX ESP: ON"
 		proxBtn.BackgroundColor3 = Color3.fromRGB(200,0,0)
 	else
-		proxBtn.Text = "PROX ALERT: OFF"
+		proxBtn.Text = "PROX ESP: OFF"
 		proxBtn.BackgroundColor3 = Color3.fromRGB(45,45,45)
-		for _,h in pairs(highlights) do
-			h:Destroy()
+		for c in pairs(highlights) do
+			removeESP(c)
 		end
-		highlights = {}
 	end
 end)
 
 --========================
--- PROXIMITY LOOP (2026 SAFE)
+-- PROX LOOP
 --========================
 task.spawn(function()
 	while true do
 		task.wait(0.15)
+		if not enabled then continue end
 
-		if not highlightAtivo then continue end
 		local char = lp.Character
-		if not char then continue end
-
-		local hrp = char:FindFirstChild("HumanoidRootPart")
+		local hrp = char and char:FindFirstChild("HumanoidRootPart")
 		if not hrp then continue end
 
 		for _,plr in ipairs(Players:GetPlayers()) do
@@ -208,12 +240,12 @@ task.spawn(function()
 				if ohrp and hum and hum.Health > 0 then
 					local dist = (hrp.Position - ohrp.Position).Magnitude
 					if dist <= PROX_DIST then
-						addHighlight(och)
+						addESP(plr, och)
 					else
-						removeHighlight(och)
+						removeESP(och)
 					end
 				else
-					removeHighlight(och)
+					removeESP(och)
 				end
 			end
 		end
